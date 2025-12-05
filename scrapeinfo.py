@@ -31,6 +31,31 @@ logging.info(f"Loaded {len(links)} links to scrape.")
 
 extracted_data = []
 
+def get_sub_score(soup_obj, label_text):
+    """
+    Finds the label, goes UP to the parent container, 
+    and then grabs the LAST span in that container (which is the score).
+    """
+    # 1. Find the text node (e.g. "Cleanliness")
+    # We use string=... to find the text, then .parent to get the <span> tag
+    label_node = soup_obj.find(string=lambda text: text and label_text in text)
+    
+    if label_node:
+        label_span = label_node.parent # This is the <span>Cleanliness</span>
+        print(label_span)
+        # 2. Go UP to the parent <div> that holds both the label and the score
+        parent_container = label_span.find_parent('div')
+        print(parent_container)
+        if parent_container:
+            # 3. Get ALL spans in this container
+            spans = parent_container.find_all('span')
+            
+            # 4. The score is usually the LAST span in the list
+            if spans:
+                return spans[-1].get_text(strip=True)
+                
+    return "N/A"
+
 # === SCRAPE EACH PAGE ===
 for i, link in enumerate(links):
     logging.info(f"[{i+1}/{len(links)}] Visiting: {link[:60]}...")
@@ -52,6 +77,11 @@ for i, link in enumerate(links):
         score = 'N/A'
         rating_word = 'N/A'
         review_count = 'N/A'
+        cleanliness = 'N/A'
+        facilities = 'N/A'
+        location = 'N/A'
+        service = 'N/A'
+        value_for_money = 'N/A'
 
         # --- 1. Name ---
         name_elem = soup.select_one('[data-selenium="hotel-header-name"]')
@@ -64,10 +94,6 @@ for i, link in enumerate(links):
         # --- 3. Star Rating ---
         star_elem = soup.select_one('[data-selenium="mosaic-hotel-rating"]>span') 
         star = star_elem.get_text(strip=True) if star_elem else "N/A"
-
-        # --- 4. Review Score, Word, and Count ---
-        # Define defaults
-        
 
         # We use 'class*=' to find any class containing "ReviewScoreCompact__score"
         review_section = soup.select_one('div[class*="ReviewScoreCompact__score"]')
@@ -88,11 +114,6 @@ for i, link in enumerate(links):
                 raw_text = count_elem.get_text(strip=True) 
                 # Split to get just the number
                 review_count = raw_text.split()[0]        
-        
-        # # FALLBACK: If the compact view isn't there, try the standard header view
-        # elif soup.select_one('[data-selenium="review-score-number"]'):
-        #      score = soup.select_one('[data-selenium="review-score-number"]').get_text(strip=True)
-        #      # (Add other fallbacks here if needed)
 
         # --- 5. Price ---
         price_elem = soup.select_one('[data-selenium="PriceDisplay"]')
@@ -101,11 +122,18 @@ for i, link in enumerate(links):
         
         price = price_elem.get_text(strip=True) if price_elem else "Sold Out/Check Dates"
 
-        # --- 6. Description (Bonus!) ---
-        desc_elem = soup.select_one('[data-selenium="hotel-description"]')
-        description = desc_elem.get_text(strip=True)[:200] + "..." if desc_elem else "N/A"
+        # --- 6. Sub-scores ---
+        cleanliness = get_sub_score(soup, "Cleanliness")
+        facilities = get_sub_score(soup, "Facilities")
+        location = get_sub_score(soup, "Location")
+        service = get_sub_score(soup, "Service")
+        value_for_money = get_sub_score(soup, "Value for money")
 
-        extracted_data.append([name, price, score, address, description, link])
+        extracted_data.append([
+            name, price, score, rating_word, review_count, 
+            cleanliness, facilities, location, service, value_for_money,
+            address, link
+        ])
 
     except Exception as e:
         logging.error(f"Failed to scrape {link}: {e}")
@@ -113,7 +141,7 @@ for i, link in enumerate(links):
 # === SAVE FINAL DATA ===
 with open("agoda_final_details.csv", "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
-    writer.writerow(["name", "price", "score", "address", "description", "url"])
+    writer.writerow(["name", "price", "score", "rating_word","review_count", "Cleanliness","Facilities","Location","Service","Value for money","address", "url"])
     writer.writerows(extracted_data)
 
 driver.quit()
