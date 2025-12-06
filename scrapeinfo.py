@@ -25,35 +25,24 @@ with open("hotel_links.csv", "r", encoding="utf-8") as f:
     reader = csv.reader(f)
     next(reader) # Skip header
     for row in reader:
-        links.append(row[0])
+        if row:
+            links.append(row[0])
 
 logging.info(f"Loaded {len(links)} links to scrape.")
 
 extracted_data = []
 
 def get_sub_score(soup_obj, label_text):
-    """
-    Finds the label, goes UP to the parent container, 
-    and then grabs the LAST span in that container (which is the score).
-    """
-    # 1. Find the text node (e.g. "Cleanliness")
-    # We use string=... to find the text, then .parent to get the <span> tag
-    label_node = soup_obj.find(string=lambda text: text and label_text in text)
+    # Look for a div with role="progressbar" whose aria-label contains our keyword
+    progress_bar = soup_obj.find("div", {
+        "role": "progressbar", 
+        "aria-label": lambda x: x and label_text in x
+    })
     
-    if label_node:
-        label_span = label_node.parent # This is the <span>Cleanliness</span>
-        print(label_span)
-        # 2. Go UP to the parent <div> that holds both the label and the score
-        parent_container = label_span.find_parent('div')
-        print(parent_container)
-        if parent_container:
-            # 3. Get ALL spans in this container
-            spans = parent_container.find_all('span')
-            
-            # 4. The score is usually the LAST span in the list
-            if spans:
-                return spans[-1].get_text(strip=True)
-                
+    # Extract the exact number from 'aria-valuenow'
+    if progress_bar and progress_bar.has_attr("aria-valuenow"):
+        return progress_bar["aria-valuenow"]
+        
     return "N/A"
 
 # === SCRAPE EACH PAGE ===
