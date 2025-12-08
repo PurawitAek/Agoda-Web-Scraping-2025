@@ -22,11 +22,6 @@ except ValueError:
     target_adults = 2 
     
 try:
-    target_childs = int(input("Enter Number of Childs: ")) 
-except ValueError:
-    target_childs = 0 
-    
-try:
     target_rooms = int(input("Enter Number of Rooms: ")) 
 except ValueError:
     target_rooms = 1 
@@ -35,7 +30,8 @@ print("\n--- INPUTS SUMMARY ---")
 print(f"Location: {location_search}")
 print(f"Check-in: {start_date}")
 print(f"Check-out: {end_date}")
-print(f"Guests: {target_adults} Adults, {target_childs} Children")
+print(f"Guests: {target_adults} Adults"),
+print(f'Rooms: {target_rooms}')
 
 # ==========================================
 # 2. DRIVER SETUP
@@ -45,14 +41,15 @@ path_to_chrome_driver = "/Users/iaek/Desktop/CHULA/CU3.1/Data_Acquisition/WebScr
 chrome_service = Service(executable_path=path_to_chrome_driver)
 
 chrome_options = Options()
-chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
-chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+chrome_options.add_argument("""user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) 
+                            AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36""")
+chrome_options.add_argument("--disable-blink-features=AutomationControlled") # Prevent detection
 
 driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 wait = WebDriverWait(driver, 20)
 
 # Open Homepage
-driver.get("https://www.agoda.com/?cid=1919571")
+driver.get("https://www.agoda.com/search")
 
 # ==========================================
 # 3. HELPER FUNCTIONS
@@ -60,8 +57,8 @@ driver.get("https://www.agoda.com/?cid=1919571")
 def click_if_present(selectors, timeout=3):
     for css in selectors:
         try:
-            el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)))
-            driver.execute_script("arguments[0].click();", el)
+            el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.CSS_SELECTOR, css))) # Wait until clickable
+            driver.execute_script("arguments[0].click();", el) # JS click to avoid interception
             return True
         except Exception:
             pass
@@ -70,18 +67,18 @@ def click_if_present(selectors, timeout=3):
 def dismiss_overlays():
     """Closes popups/overlays"""
     close_selectors = [
-        "[data-testid='floater-container'] [aria-label*='Close']",
-        "button[aria-label='Close']",
-        "[data-testid='cookie-accept']",
-        "button[aria-label*='Accept']"
+        "[data-testid='floater-container'] [aria-label*='Close']", # Generic close button in popups
+        "button[aria-label='Close']", # Another common close button
+        "[data-testid='cookie-accept']", # Cookie accept button
+        "button[aria-label*='Accept']" # Another cookie accept button
     ]
     click_if_present(close_selectors, timeout=2)
 
 def safe_click(css):
     dismiss_overlays()
     try:
-        elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css)))
-        driver.execute_script("arguments[0].click();", elem)
+        elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css))) # Wait until clickable
+        driver.execute_script("arguments[0].click();", elem) # JS click to avoid interception
     except Exception:
         print(f"⚠️ Could not click {css}")
 
@@ -116,7 +113,7 @@ try:
     time.sleep(0.5)
     driver.find_element(By.XPATH, end_xpath).click()
 except Exception:
-    print("⚠️ Could not click dates automatically. Please select manually if needed.")
+    print("Could not click dates automatically. Please select manually if needed.")
 
 # Close calendar if still open
 try:
@@ -124,7 +121,7 @@ try:
 except: pass
 
 # --- C. Set Occupancy ---
-print("👥 Setting Occupancy...")
+print("👥 Setting Occupanc & Room...")
 safe_click("[data-selenium='occupancyBox']")
 time.sleep(1)
 
@@ -135,6 +132,18 @@ try:
         for _ in range(target_adults - int(curr_val)):
             click_if_present(["[data-selenium-plus='occupancy-selector']"])
 except: pass
+
+try:
+    curr_room_elem = driver.find_element(By.CSS_SELECTOR, "[data-selenium*='desktop-occ-room-value']")
+    curr_room = int(curr_room_elem.text)
+
+    if curr_room < target_rooms:
+        for _ in range(target_rooms - curr_room):
+            # Room selector often has a unique data-selenium name
+            click_if_present(["[data-selenium-plus='room-selector']", "[aria-label='Increase number of rooms']"])
+            time.sleep(0.5)
+except Exception as e:
+    print(f"⚠️ Error setting rooms: {e}")
 
 # Click anywhere to close occupancy box
 driver.find_element(By.TAG_NAME, "body").click()

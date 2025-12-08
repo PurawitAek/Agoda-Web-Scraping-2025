@@ -13,7 +13,7 @@ path_to_chrome_driver = "/Users/iaek/Desktop/CHULA/CU3.1/Data_Acquisition/WebScr
 chrome_service = Service(executable_path=path_to_chrome_driver)
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")  # Headless is faster for this step เพราะเราไม่ต้อง render หน้าเว็บให้เห็น
-chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+chrome_options.add_argument("--disable-blink-features=AutomationControlled") # Prevent detection
 chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 
 driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
